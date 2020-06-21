@@ -12,7 +12,6 @@
             "Type" : "AWS::EC2::Instance",
             "Properties" : {
                 "InstanceType" : "t2.nano",
-                "KeyName"  : { "Ref" : "KeyPairName" },
                 "ImageId"  : "ami-0d3e41f1041fe75b3",
                 "Tags": [
                     {

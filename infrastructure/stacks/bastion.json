@@ -5,7 +5,7 @@
       "VPCStackName": {
         "Description": "The name of the target VPC stack to deploy this ELB into",
         "Type": "String"
-      },
+      }
     },
     "Resources": {
         "BastionHost" : {

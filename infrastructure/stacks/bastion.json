@@ -12,7 +12,7 @@
             "Type" : "AWS::EC2::Instance",
             "Properties" : {
                 "InstanceType" : "t2.nano",
-                "ImageId"  : "ami-0d3e41f1041fe75b3",
+                "ImageId"  : "ami-62a1fb04",
                 "Tags": [
                     {
                         "Key": "Name",

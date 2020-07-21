@@ -13,22 +13,6 @@
         "Type": "String"
       }
   },
-  "ContainerTask": {
-    "Type": "AWS::ECS::TaskDefinition",
-    "Properties": {
-      "ContainerDefinitions": [
-        {
-          "Name": {"Fn::Sub" : "TestContainer"},
-          "Fn::Transform": {
-             "Name": "AWS::Include",
-             "Parameters": {
-               "Location": { "Ref": "EnvBucket" }
-             }
-          }
-        }
-      ]
-    }
-  },
   "Resources": {
     "VPC": {
         "Type": "AWS::EC2::VPC",
@@ -37,5 +21,21 @@
             "Tags" : [ {"Key" : "Name", "Value" : { "Ref": "AWS::StackName" }} ]
         }
     },
+    "ContainerTask": {
+      "Type": "AWS::ECS::TaskDefinition",
+      "Properties": {
+        "ContainerDefinitions": [
+          {
+            "Name": {"Fn::Sub" : "TestContainer"},
+            "Fn::Transform": {
+               "Name": "AWS::Include",
+               "Parameters": {
+                 "Location": { "Ref": "EnvBucket" }
+               }
+            }
+          }
+        ]
+      }
+    }
   }
 }

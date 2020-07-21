@@ -11,7 +11,17 @@
       "EnvBucket": {
         "Description": "Bucket For CloudFormation transform snippet",
         "Type": "String"
-      }
+      },
+      "ContainerCpu": {
+        "Description": "How much CPU to give the container. 1024 is 1 CPU",
+        "Type": "Number",
+        "Default": 128
+      },
+      "ContainerMemory": {
+        "Description": "How much memory in megabytes to give the container",
+        "Type": "Number",
+        "Default": 128
+      },
   },
   "Resources": {
     "VPC": {
@@ -26,7 +36,9 @@
       "Properties": {
         "ContainerDefinitions": [
           {
-            "Name": {"Fn::Sub" : "TestContainer"},
+            "Name": "TestContainer",
+            "Cpu": { "Ref": "ContainerCpu" },
+            "Memory": { "Ref": "ContainerMemory" },
             "Fn::Transform": {
                "Name": "AWS::Include",
                "Parameters": {

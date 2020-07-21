@@ -7,7 +7,27 @@
           "Default": "10.4",
           "Description": "CIDR block prefix for the VPC, should be first two '.' seperated values",
           "Type": "String"
+      },
+      "EnvBucket": {
+        "Description": "Bucket For CloudFormation transform snippet",
+        "Type": "String"
       }
+  },
+  "ContainerTask": {
+    "Type": "AWS::ECS::TaskDefinition",
+    "Properties": {
+      "ContainerDefinitions": [
+        {
+          "Name": {"Fn::Sub" : "TestContainer"},
+          "Fn::Transform": {
+             "Name": "AWS::Include",
+             "Parameters": {
+               "Location": { "Ref": "EnvBucket" }
+             }
+          }
+        }
+      ]
+    }
   },
   "Resources": {
     "VPC": {

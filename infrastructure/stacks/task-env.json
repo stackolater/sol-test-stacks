@@ -1,0 +1,49 @@
+{
+    "AWSTemplateFormatVersion": "2010-09-09",
+    "Description": "Environment subnets & routing [02-create-env]",
+    "Parameters": {
+        "VPCStackName": {
+            "Description": "The name of the target VPC stack to deploy this environment into",
+            "Type": "String"
+        },
+        "EnvironmentType": {
+            "Description": "Type of the environment to build : demo, development, staging, production or performance",
+            "Type": "String",
+            "Default": "dev"
+        }
+    },
+    "Resources": {
+        "Subnet": {
+            "Type": "AWS::EC2::Subnet",
+            "Properties": {
+                "VpcId": {"Fn::ImportValue" : {"Fn::Sub" : "${VPCStackName}-VPCID"}},
+                "CidrBlock": "10.6.0.0/16"
+            }
+        }
+    },
+    "Outputs": {
+        "SubnetID": {
+            "Description": "Private subnet",
+            "Value": {
+                "Ref": "Subnet"
+            },
+            "Export" : {
+                "Name" : { "Fn::Sub": "${VPCStackName}-${EnvironmentType}-SubnetID" }
+            }
+        },
+        "Subnet1WorkID": {
+            "Description": "Private subnet 1-work ID in Availability Zone 1",
+            "Value": "subnet-1-23456789",
+            "Export" : {
+                "Name" : { "Fn::Sub": "${VPCStackName}-${EnvironmentType}-Subnet1WorkID" }
+            }
+        },
+        "Subnet2WorkID": {
+            "Description": "Private subnet 2-work ID in Availability Zone 2",
+            "Value": "subnet-2-23456789",
+            "Export" : {
+                "Name" : { "Fn::Sub": "${VPCStackName}-${EnvironmentType}-Subnet2WorkID" }
+            }
+        }
+    }
+}

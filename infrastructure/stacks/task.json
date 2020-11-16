@@ -1,0 +1,56 @@
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Description": "Test service stack",
+  "Parameters": {
+    "VPCStackName": {
+      "Description": "The name of the target VPC stack to deploy this ELB into",
+      "Type": "String"
+    },
+    "ServiceName": {
+      "Description": "The name of the ECS Service to create",
+      "Type": "String"
+    },
+      "EnvBucket": {
+        "Description": "Bucket For CloudFormation transform snippet",
+        "Type": "String"
+      },
+      "ContainerCpu": {
+        "Description": "How much CPU to give the container. 1024 is 1 CPU",
+        "Type": "Number",
+        "Default": 128
+      },
+      "ContainerMemory": {
+        "Description": "How much memory in megabytes to give the container",
+        "Type": "Number",
+        "Default": 128
+      },
+    "EnvironmentType": {
+      "Description": "Name of the environment to build : demo, development, staging performance or production",
+      "Type": "String",
+      "Default": "test"
+    }
+  },
+  "Resources": {
+    "ContainerTask": {
+      "Type": "AWS::ECS::TaskDefinition",
+      "Properties": {
+        "Family" : {"Fn::Sub" : "${VPCStackName}-${EnvironmentType}-${ServiceName}"},
+        "Cpu": { "Ref": "ContainerCpu" },
+        "Memory": { "Ref": "ContainerMemory" },
+        "ContainerDefinitions": [
+          {
+            "Name": "TestContainer",
+            "Cpu": { "Ref": "ContainerCpu" },
+            "Memory": { "Ref": "ContainerMemory" },
+            "Fn::Transform": {
+               "Name": "AWS::Include",
+               "Parameters": {
+                 "Location": { "Ref": "EnvBucket" }
+               }
+            }
+          }
+        ]
+      }
+    }
+  }
+}

@@ -16,7 +16,7 @@
         "Subnet": {
             "Type": "AWS::EC2::Subnet",
             "Properties": {
-                "VpcId": {"Fn::ImportValue" : {"Fn::Sub" : "${EnvironmentType}-${VPCStackName}-VPCID"}},
+                "VpcId": {"Fn::ImportValue" : {"Fn::Sub" : "${VPCStackName}-VPCID"}},
                 "CidrBlock": "10.6.0.0/16"
             }
         }

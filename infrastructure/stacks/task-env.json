@@ -19,6 +19,22 @@
                 "VpcId": {"Fn::ImportValue" : {"Fn::Sub" : "${VPCStackName}-VPCID"}},
                 "CidrBlock": "10.6.0.0/16"
             }
+        },
+        "Subnet1Work": {
+            "Type": "AWS::EC2::Subnet",
+            "Properties": {
+                "VpcId": {"Fn::ImportValue" : {"Fn::Sub" : "${EnvironmentType}-${VPCStackName}-VPCID"}},
+                "CidrBlock": "10.6.60.0/23",
+                "AvailabilityZone": "us-east-1a"
+            }
+        },
+        "Subnet2Work": {
+            "Type": "AWS::EC2::Subnet",
+            "Properties": {
+                "VpcId": {"Fn::ImportValue" : {"Fn::Sub" : "${EnvironmentType}-${VPCStackName}-VPCID"}},
+                "CidrBlock": "10.6.62.0/23",
+                "AvailabilityZone": "us-east-1b"
+            }
         }
     },
     "Outputs": {
@@ -29,6 +45,20 @@
             },
             "Export" : {
                 "Name" : { "Fn::Sub": "${VPCStackName}-${EnvironmentType}-SubnetID" }
+            }
+        },
+        "Subnet1WorkID": {
+            "Description": "Private subnet 1-work ID in Availability Zone 1",
+            "Value": { "Ref": "Subnet1Work"},
+            "Export" : {
+                "Name" : { "Fn::Sub": "${VPCStackName}-${EnvironmentType}-Subnet1WorkID" }
+            }
+        },
+        "Subnet2WorkID": {
+            "Description": "Private subnet 2-work ID in Availability Zone 2",
+            "Value": { "Ref": "Subnet2Work"},
+            "Export" : {
+                "Name" : { "Fn::Sub": "${VPCStackName}-${EnvironmentType}-Subnet2WorkID" }
             }
         }
     }

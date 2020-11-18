@@ -30,16 +30,14 @@
             "Type": "AWS::EC2::Subnet",
             "Properties": {
                 "VpcId": {"Fn::ImportValue" : {"Fn::Sub" : "${VPCStackName}-VPCID"}},
-                "CidrBlock": "10.4.58.0/23",
-                "AvailabilityZone": "us-east-1a"
+                "CidrBlock": "10.4.58.0/23"
             }
         },
         "Subnet2Work": {
             "Type": "AWS::EC2::Subnet",
             "Properties": {
                 "VpcId": {"Fn::ImportValue" : {"Fn::Sub" : "${VPCStackName}-VPCID"}},
-                "CidrBlock": "10.4.60.0/23",
-                "AvailabilityZone": "us-east-1b"
+                "CidrBlock": "10.4.60.0/23"
             }
         }
     },

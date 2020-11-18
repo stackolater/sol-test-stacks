@@ -26,6 +26,15 @@
         "Export" : {
             "Name" : { "Fn::Sub": "${AWS::StackName}-VPCID" }
         }
+    },
+    "VpcCidrRoot": {
+        "Value": {
+            "Ref": "VPCCIDRROOT"
+        },
+        "Description": "VPC CIDR Root",
+        "Export" : {
+            "Name" : { "Fn::Sub": "${AWS::StackName}-VPCCIDRROOT" }
+        }
     }
   }
 }

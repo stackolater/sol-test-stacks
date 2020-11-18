@@ -28,6 +28,28 @@
       "Description": "Name of the environment to build : demo, development, staging performance or production",
       "Type": "String",
       "Default": "test"
+    },
+    "ImageUrl": {
+      "Description": "The url of a docker image that contains the application process that will handle the traffic for this service",
+      "Type": "String"
+    },
+    "ServiceRole": {
+      "AllowedValues": [
+        "true", "false"
+      ],
+      "Default": "false",
+      "Type": "String",
+      "Description": "Should we use a service role specific for this service"
+    },
+    "ServiceRoleName": {
+      "Default": "",
+      "Type": "String",
+      "Description": "The Name given to the service role. Can be common accross services"
+    }
+  },
+  "Conditions": {
+    "UseServiceRole": {
+        "Fn::Equals" : [ {"Ref" : "ServiceRole"}, "true" ]
     }
   },
   "Resources": {
@@ -37,11 +59,28 @@
         "Family" : {"Fn::Sub" : "${VPCStackName}-${EnvironmentType}-${ServiceName}"},
         "Cpu": { "Ref": "ContainerCpu" },
         "Memory": { "Ref": "ContainerMemory" },
+        "NetworkMode": "awsvpc",
+        "RequiresCompatibilities": [ "FARGATE" ],
+        "ExecutionRoleArn": { "Fn::If":
+          [
+            "UseServiceRole",
+            {"Fn::ImportValue" : {"Fn::Sub" : "${EnvironmentType}-${ServiceRoleName}-ExecutionRoleArn"}},
+            {"Fn::ImportValue" : {"Fn::Sub" : "${VPCStackName}-${EnvironmentType}-ECSTaskExecutionRoleArn"}}
+          ]
+        },
+        "TaskRoleArn": { "Fn::If":
+          [
+            "UseServiceRole",
+            {"Fn::ImportValue" : {"Fn::Sub" : "${EnvironmentType}-${ServiceRoleName}-ExecutionRoleArn"}},
+            {"Fn::ImportValue" : {"Fn::Sub" : "${VPCStackName}-${EnvironmentType}-ECSTaskExecutionRoleArn"}}
+          ]
+        },
         "ContainerDefinitions": [
           {
-            "Name": "TestContainer",
+            "Name": {"Fn::Sub" : "${ServiceName}-${EnvironmentType}"},
             "Cpu": { "Ref": "ContainerCpu" },
             "Memory": { "Ref": "ContainerMemory" },
+            "Image": { "Ref": "ImageUrl" },
             "Fn::Transform": {
                "Name": "AWS::Include",
                "Parameters": {

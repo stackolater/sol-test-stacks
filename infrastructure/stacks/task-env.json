@@ -1,6 +1,12 @@
 {
     "AWSTemplateFormatVersion": "2010-09-09",
     "Description": "Environment subnets & routing [02-create-env]",
+    "Mappings" : {
+        "SubnetRangeMap" : {
+            "core" : {"1web" : ".32.0/23", "2web" : ".34.0/23", "1api" : ".36.0/23", "2api" : ".38.0/23", "1work" : ".40.0/23", "2work" : ".42.0/23", "1db" : ".44.0/23", "2db" : ".46.0/23"},
+            "test" : {"1web" : ".52.0/23", "2web" : ".54.0/23", "1api" : ".56.0/23", "2api" : ".58.0/23", "1work" : ".60.0/23", "2work" : ".62.0/23", "1db" : ".64.0/23", "2db" : ".66.0/23"}
+        }
+    },
     "Parameters": {
         "VPCStackName": {
             "Description": "The name of the target VPC stack to deploy this environment into",
@@ -24,7 +30,7 @@
             "Type": "AWS::EC2::Subnet",
             "Properties": {
                 "VpcId": {"Fn::ImportValue" : {"Fn::Sub" : "${VPCStackName}-VPCID"}},
-                "CidrBlock": "10.5.60.0/23",
+                "CidrBlock": { "Fn::Sub" : [ "${CIDRROOT}${CIDRRANGE}", {"CIDRROOT" : {"Fn::ImportValue" : {"Fn::Sub" : "${VPCStackName}-VPCCIDRROOT"}}, "CIDRRANGE" : { "Fn::FindInMap" : [ "SubnetRangeMap", { "Ref" : "EnvironmentType" }, "1web"] }} ]},
                 "AvailabilityZone": "us-east-1a"
             }
         },
@@ -32,7 +38,7 @@
             "Type": "AWS::EC2::Subnet",
             "Properties": {
                 "VpcId": {"Fn::ImportValue" : {"Fn::Sub" : "${VPCStackName}-VPCID"}},
-                "CidrBlock": "10.4.62.0/23",
+                "CidrBlock": { "Fn::Sub" : [ "${CIDRROOT}${CIDRRANGE}", {"CIDRROOT" : {"Fn::ImportValue" : {"Fn::Sub" : "${VPCStackName}-VPCCIDRROOT"}}, "CIDRRANGE" : { "Fn::FindInMap" : [ "SubnetRangeMap", { "Ref" : "EnvironmentType" }, "2web"] }} ]},
                 "AvailabilityZone": "us-east-1b"
             }
         }

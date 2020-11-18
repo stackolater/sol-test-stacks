@@ -61,20 +61,6 @@
         "Memory": { "Ref": "ContainerMemory" },
         "NetworkMode": "awsvpc",
         "RequiresCompatibilities": [ "FARGATE" ],
-        "ExecutionRoleArn": { "Fn::If":
-          [
-            "UseServiceRole",
-            {"Fn::ImportValue" : {"Fn::Sub" : "${EnvironmentType}-${ServiceRoleName}-ExecutionRoleArn"}},
-            {"Fn::ImportValue" : {"Fn::Sub" : "${VPCStackName}-${EnvironmentType}-ECSTaskExecutionRoleArn"}}
-          ]
-        },
-        "TaskRoleArn": { "Fn::If":
-          [
-            "UseServiceRole",
-            {"Fn::ImportValue" : {"Fn::Sub" : "${EnvironmentType}-${ServiceRoleName}-ExecutionRoleArn"}},
-            {"Fn::ImportValue" : {"Fn::Sub" : "${VPCStackName}-${EnvironmentType}-ECSTaskExecutionRoleArn"}}
-          ]
-        },
         "ContainerDefinitions": [
           {
             "Name": {"Fn::Sub" : "${ServiceName}-${EnvironmentType}"},

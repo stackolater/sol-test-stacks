@@ -1,6 +1,16 @@
 {
   "AWSTemplateFormatVersion": "2010-09-09",
-  "Description": "Test service stack",
+  "Description": "EC2 Container Service [07-create-]",
+  "Metadata": {
+    "cfn-lint": {
+      "config": {
+        "ignore_checks": [
+          "E3002",
+          "E2522"
+        ]
+      }
+    }
+  },
   "Parameters": {
     "VPCStackName": {
       "Description": "The name of the target VPC stack to deploy this ELB into",
@@ -10,28 +20,33 @@
       "Description": "The name of the ECS Service to create",
       "Type": "String"
     },
-      "EnvBucket": {
-        "Description": "Bucket For CloudFormation transform snippet",
-        "Type": "String"
-      },
-      "ContainerCpu": {
-        "Description": "How much CPU to give the container. 1024 is 1 CPU",
-        "Type": "Number",
-        "Default": 128
-      },
-      "ContainerMemory": {
-        "Description": "How much memory in megabytes to give the container",
-        "Type": "Number",
-        "Default": 128
-      },
-    "EnvironmentType": {
-      "Description": "Name of the environment to build : demo, development, staging performance or production",
-      "Type": "String",
-      "Default": "test"
-    },
     "ImageUrl": {
       "Description": "The url of a docker image that contains the application process that will handle the traffic for this service",
       "Type": "String"
+    },
+    "ContainerCpu": {
+      "Description": "How much CPU to give the container. 1024 is 1 CPU",
+      "Type": "Number"
+    },
+    "ContainerMemory": {
+      "Description": "How much memory in megabytes to give the container",
+      "Type": "Number"
+    },
+    "EnvironmentType": {
+      "Description": "Name of the environment to build : demo, development, staging performance or production",
+      "Type": "String",
+      "Default": "prod",
+      "AllowedValues": [
+        "core", "uat", "dev", "staging", "prod", "test", "demo", "perf", "feat1", "feat2", "feat3", "feat4", "feat5", "feat6"
+      ]
+    },
+    "LaunchType": {
+      "AllowedValues": [
+        "EC2", "FARGATE"
+      ],
+      "Default": "FARGATE",
+      "Type": "String",
+      "Description": "The launch type for this Service EC2 or FARGATE"
     },
     "ServiceRole": {
       "AllowedValues": [
@@ -45,22 +60,92 @@
       "Default": "",
       "Type": "String",
       "Description": "The Name given to the service role. Can be common accross services"
+    },
+    "EnvBucket": {
+      "Description": "Bucket For CloudFormation transform snippet",
+      "Type": "String"
+    },
+    "Automated": {
+      "Description": "Flag to run task automatically based on a schedule or an alarm triggering",
+      "Type": "String",
+      "Default": "false"
+    },
+    "ScheduleExpression": {
+      "Description": "The cron expression for how often the task should run. https://docs.aws.amazon.com/eventbridge/latest/userguide/scheduled-events.html",
+      "Type": "String",
+      "Default": "none"
+    },
+    "AlarmName": {
+      "Description": "The name of the alarm that triggers running the task",
+      "Type": "String",
+      "Default": "none"
     }
   },
   "Conditions": {
     "UseServiceRole": {
         "Fn::Equals" : [ {"Ref" : "ServiceRole"}, "true" ]
+    },
+    "UseAutomation": { "Fn::Equals" : [ {"Ref" : "Automated"}, "true"]},
+    "UseSchedule": { "Fn::Not" : [{ "Fn::Equals" : [ {"Ref": "ScheduleExpression"}, "none"]}]},
+    "UseAlarm": { "Fn::Not" : [{ "Fn::Equals" : [ {"Ref": "AlarmName"}, "none"]}]},
+    "UseEC2LaunchType": {
+        "Fn::Equals" : [ {"Ref" : "LaunchType"}, "EC2" ]
     }
   },
   "Resources": {
+    "CloudwatchLogsGroup": {
+      "Type": "AWS::Logs::LogGroup",
+      "Properties": {
+        "LogGroupName": {
+          "Fn::Join": [
+            "-",
+            [
+              "ECSLogGroup",
+              {
+                "Ref": "AWS::StackName"
+              }
+            ]
+          ]
+        },
+        "RetentionInDays": 14
+      }
+    },
     "ContainerTask": {
       "Type": "AWS::ECS::TaskDefinition",
       "Properties": {
         "Family" : {"Fn::Sub" : "${VPCStackName}-${EnvironmentType}-${ServiceName}"},
-        "Cpu": { "Ref": "ContainerCpu" },
-        "Memory": { "Ref": "ContainerMemory" },
-        "NetworkMode": "awsvpc",
-        "RequiresCompatibilities": [ "FARGATE" ],
+        "Cpu": {"Fn::If": ["UseEC2LaunchType", {"Ref" : "AWS::NoValue"}, {"Ref": "ContainerCpu"}]},
+        "Memory": {"Fn::If": ["UseEC2LaunchType", {"Ref" : "AWS::NoValue"}, {"Ref": "ContainerMemory"}]},
+        "NetworkMode": { "Fn::If":
+          [
+            "UseEC2LaunchType",
+            "bridge",
+            "awsvpc"
+          ]
+        },
+        "RequiresCompatibilities": [
+          { "Fn::If":
+            [
+              "UseEC2LaunchType",
+              "EC2",
+              "FARGATE"
+            ]
+          }
+        ],
+        "ExecutionRoleArn": { "Fn::If":
+          [
+            "UseServiceRole",
+            {"Fn::ImportValue" : {"Fn::Sub" : "${EnvironmentType}-${ServiceRoleName}-ExecutionRoleArn"}},
+            {"Fn::ImportValue" : {"Fn::Sub" : "${VPCStackName}-${EnvironmentType}-ECSTaskExecutionRoleArn"}}
+          ]
+        },
+        "TaskRoleArn": { "Fn::If":
+          [
+            "UseServiceRole",
+            {"Fn::ImportValue" : {"Fn::Sub" : "${EnvironmentType}-${ServiceRoleName}-ExecutionRoleArn"}},
+            {"Fn::ImportValue" : {"Fn::Sub" : "${VPCStackName}-${EnvironmentType}-ECSTaskExecutionRoleArn"}}
+          ]
+        },
         "ContainerDefinitions": [
           {
             "Name": {"Fn::Sub" : "${ServiceName}-${EnvironmentType}"},
@@ -72,9 +157,112 @@
                "Parameters": {
                  "Location": { "Ref": "EnvBucket" }
                }
+            },
+            "LogConfiguration": {
+              "LogDriver": "awslogs",
+              "Options": {
+                "awslogs-group": {
+                  "Ref": "CloudwatchLogsGroup"
+                },
+                "awslogs-region": {
+                  "Ref": "AWS::Region"
+                },
+                "awslogs-stream-prefix": "ecs-content"
+              }
             }
           }
         ]
+      }
+    },
+    "RunTaskScheduleRole": {
+      "Type" : "AWS::IAM::Role",
+      "Condition": "UseAutomation",
+      "Properties" : {
+        "AssumeRolePolicyDocument": {
+          "Statement": {
+            "Sid": "",
+            "Effect": "Allow",
+            "Principal": {
+              "Service": "events.amazonaws.com"
+            },
+            "Action": "sts:AssumeRole"
+          }
+        },
+        "Path": "/",
+        "Policies": [
+          {
+            "PolicyName": {"Fn::Sub": "${EnvironmentType}-task-${ServiceName}-ecsRunTaskPolicy"},
+            "PolicyDocument": {
+              "Statement": [{
+                  "Effect": "Allow",
+                  "Action": [
+                    "ecs:RunTask"
+                  ],
+                  "Resource": "*"
+                },
+                {
+                  "Effect": "Allow",
+                  "Action": "iam:PassRole",
+                  "Resource": [
+                      "*"
+                  ],
+                  "Condition": {
+                      "StringLike": {
+                          "iam:PassedToService": "ecs-tasks.amazonaws.com"
+                      }
+                  }
+               }]
+            }
+          }
+        ]
+      }
+    },
+    "TaskSchedule": {
+      "Type": "AWS::Events::Rule",
+      "Condition": "UseAutomation",
+      "Properties": {
+        "Name": {"Fn::Sub": "${EnvironmentType}-task-${ServiceName}-schedule"},
+        "Description": {"Fn::Sub": "Task schedule to run ${EnvironmentType}-task-${ServiceName}"},
+        "State": "ENABLED",
+        "EventPattern": {"Fn::If":[
+          "UseAlarm",
+          {
+            "source": [ "aws.cloudwatch" ],
+            "detail-type": ["CloudWatch Alarm State Change"],
+            "resources": [{"Fn::ImportValue": {"Fn::Sub": "${EnvironmentType}-${AlarmName}-AlarmArn"}}],
+            "detail": { "state": { "value": ["ALARM"] }}
+          },
+          {"Ref": "AWS::NoValue"}
+        ]},
+        "ScheduleExpression": {"Fn::If": [ "UseSchedule", {"Ref": "ScheduleExpression"}, {"Ref": "AWS::NoValue"} ]},
+        "Targets": [{
+          "Arn": {"Fn::ImportValue" : {"Fn::Sub" : "${VPCStackName}-${EnvironmentType}-DockerClusterArn"}},
+          "Id": {"Fn::Sub": "${VPCStackName}-${EnvironmentType}"},
+          "RoleArn": {"Fn::GetAtt" : ["RunTaskScheduleRole", "Arn"] },
+          "EcsParameters": {
+            "TaskDefinitionArn": {"Ref": "ContainerTask"},
+            "LaunchType": { "Ref": "LaunchType" },
+            "NetworkConfiguration": { "Fn::If":
+              [
+                "UseEC2LaunchType",
+                {"Ref" : "AWS::NoValue"},
+                {
+                  "AwsVpcConfiguration": {
+                    "AssignPublicIp": {"Fn::If": ["UseEC2LaunchType", "DISABLED", "ENABLED"]},
+                    "SecurityGroups": [
+                      {"Fn::ImportValue" : {"Fn::Sub" : "${VPCStackName}-${EnvironmentType}-ELBSecurityGroupID"}},
+                      {"Fn::ImportValue" : {"Fn::Sub" : "${VPCStackName}-${EnvironmentType}-WorkSecurityGroupID"}}
+                    ],
+                    "Subnets" : [
+                      {"Fn::ImportValue" : {"Fn::Sub" : "${VPCStackName}-PublicSubnet1ID"}},
+                      {"Fn::ImportValue" : {"Fn::Sub" : "${VPCStackName}-PublicSubnet2ID"}
+                    }]
+                  }
+                }
+              ]
+            }
+          }
+        }]
       }
     }
   }

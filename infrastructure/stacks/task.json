@@ -26,11 +26,13 @@
     },
     "ContainerCpu": {
       "Description": "How much CPU to give the container. 1024 is 1 CPU",
-      "Type": "Number"
+      "Type": "Number",
+      "Default": 256
     },
     "ContainerMemory": {
       "Description": "How much memory in megabytes to give the container",
-      "Type": "Number"
+      "Type": "Number",
+      "Default": 512
     },
     "EnvironmentType": {
       "Description": "Name of the environment to build : demo, development, staging performance or production",

@@ -1,26 +1,16 @@
-AWSTemplateFormatVersion: '2010-09-09'
+AWSTemplateFormatVersion: "2010-09-09"
 Description: Underlay VPC & Public subnets [01-create-vpc]
-Metadata:
-  AWS::CloudFormation::Interface:
-    ParameterGroups:
-      - Label:
-          default: Network Configuration
-        Parameters:
-          - VPCCIDRROOT
-    ParameterLabels:
-      VPCCIDRROOT:
-        default: VPC CIDR ROOT
 Parameters:
   VPCCIDRROOT:
     AllowedPattern: ^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){1}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])$
-    Default: '10.4'
+    Default: "10.4"
     Description: CIDR block prefix for the VPC, should be first two '.' seperated values
     Type: String
   HasNatGateway:
-    Default: 'true'
+    Default: "true"
     Type: String
   HasNatInstance:
-    Default: 'true'
+    Default: "true"
     Type: String
   KeyPairName:
     Description: Public/private key pairs allow you to securely connect to your NAT instance after it launches. This is used only if the region does not support NAT gateways.
@@ -67,11 +57,11 @@ Mappings:
       AWSNATHVM: ami-a275b1c2
 Conditions:
   CreateNatGateway: !Equals
-    - !Ref 'HasNatGateway'
-    - 'true'
+    - !Ref "HasNatGateway"
+    - "true"
   CreateNatInstance: !Equals
-    - !Ref 'HasNatInstance'
-    - 'true'
+    - !Ref "HasNatInstance"
+    - "true"
 Resources:
   DHCPOptions:
     Type: AWS::EC2::DHCPOptions
@@ -81,17 +71,17 @@ Resources:
   VPC:
     Type: AWS::EC2::VPC
     Properties:
-      CidrBlock: !Sub '${VPCCIDRROOT}.0.0/16'
+      CidrBlock: !Sub "${VPCCIDRROOT}.0.0/16"
       EnableDnsSupport: true
       EnableDnsHostnames: true
       Tags:
         - Key: Name
-          Value: !Ref 'AWS::StackName'
+          Value: !Ref "AWS::StackName"
   VPCDHCPOptionsAssociation:
     Type: AWS::EC2::VPCDHCPOptionsAssociation
     Properties:
-      VpcId: !Ref 'VPC'
-      DhcpOptionsId: !Ref 'DHCPOptions'
+      VpcId: !Ref "VPC"
+      DhcpOptionsId: !Ref "DHCPOptions"
   InternetGateway:
     Type: AWS::EC2::InternetGateway
     Properties:
@@ -101,13 +91,13 @@ Resources:
   VPCGatewayAttachment:
     Type: AWS::EC2::VPCGatewayAttachment
     Properties:
-      VpcId: !Ref 'VPC'
-      InternetGatewayId: !Ref 'InternetGateway'
+      VpcId: !Ref "VPC"
+      InternetGatewayId: !Ref "InternetGateway"
   PublicSubnet1:
     Type: AWS::EC2::Subnet
     Properties:
-      VpcId: !Ref 'VPC'
-      CidrBlock: !Sub '${VPCCIDRROOT}.0.0/20'
+      VpcId: !Ref "VPC"
+      CidrBlock: !Sub "${VPCCIDRROOT}.0.0/20"
       AvailabilityZone: !Select
         - 1
         - !GetAZs
@@ -118,15 +108,15 @@ Resources:
         - Key: Role
           Value: Public
         - Key: Name
-          Value: !Sub '${AWS::StackName}-public-1-new-join'
+          Value: !Sub "${AWS::StackName}-public-1-new-join"
       MapPublicIpOnLaunch: true
   PublicSubnet2:
     Type: AWS::EC2::Subnet
     Properties:
-      VpcId: !Ref 'VPC'
-      CidrBlock: !Sub '${VPCCIDRROOT}.16.0/20'
+      VpcId: !Ref "VPC"
+      CidrBlock: !Sub "${VPCCIDRROOT}.16.0/20"
       AvailabilityZone: !Select
-        - '2'
+        - "2"
         - !GetAZs
           Ref: AWS::Region
       Tags:
@@ -135,12 +125,12 @@ Resources:
         - Key: Role
           Value: Public
         - Key: Name
-          Value: !Sub '${AWS::StackName}-public-2-new-join'
+          Value: !Sub "${AWS::StackName}-public-2-new-join"
       MapPublicIpOnLaunch: true
   PublicSubnetRouteTable:
     Type: AWS::EC2::RouteTable
     Properties:
-      VpcId: !Ref 'VPC'
+      VpcId: !Ref "VPC"
       Tags:
         - Key: Network
           Value: Public
@@ -148,19 +138,19 @@ Resources:
     DependsOn: VPCGatewayAttachment
     Type: AWS::EC2::Route
     Properties:
-      RouteTableId: !Ref 'PublicSubnetRouteTable'
-      DestinationCidrBlock: '0.0.0.0/0'
-      GatewayId: !Ref 'InternetGateway'
+      RouteTableId: !Ref "PublicSubnetRouteTable"
+      DestinationCidrBlock: "0.0.0.0/0"
+      GatewayId: !Ref "InternetGateway"
   PublicSubnet1RouteTableAssociation:
     Type: AWS::EC2::SubnetRouteTableAssociation
     Properties:
-      SubnetId: !Ref 'PublicSubnet1'
-      RouteTableId: !Ref 'PublicSubnetRouteTable'
+      SubnetId: !Ref "PublicSubnet1"
+      RouteTableId: !Ref "PublicSubnetRouteTable"
   PublicSubnet2RouteTableAssociation:
     Type: AWS::EC2::SubnetRouteTableAssociation
     Properties:
-      SubnetId: !Ref 'PublicSubnet2'
-      RouteTableId: !Ref 'PublicSubnetRouteTable'
+      SubnetId: !Ref "PublicSubnet2"
+      RouteTableId: !Ref "PublicSubnetRouteTable"
   NAT1EIP:
     Condition: CreateNatGateway
     Type: AWS::EC2::EIP
@@ -170,8 +160,8 @@ Resources:
     Condition: CreateNatGateway
     Type: AWS::EC2::NatGateway
     Properties:
-      AllocationId: !GetAtt 'NAT1EIP.AllocationId'
-      SubnetId: !Ref 'PublicSubnet1'
+      AllocationId: !GetAtt "NAT1EIP.AllocationId"
+      SubnetId: !Ref "PublicSubnet1"
   NAT2EIP:
     Condition: CreateNatGateway
     Type: AWS::EC2::EIP
@@ -181,8 +171,8 @@ Resources:
     Condition: CreateNatGateway
     Type: AWS::EC2::NatGateway
     Properties:
-      AllocationId: !GetAtt 'NAT2EIP.AllocationId'
-      SubnetId: !Ref 'PublicSubnet2'
+      AllocationId: !GetAtt "NAT2EIP.AllocationId"
+      SubnetId: !Ref "PublicSubnet2"
   NATInstance1:
     Condition: CreateNatInstance
     DependsOn: VPCGatewayAttachment
@@ -190,23 +180,23 @@ Resources:
     Properties:
       ImageId: !FindInMap
         - AWSAMIRegionMap
-        - !Ref 'AWS::Region'
+        - !Ref "AWS::Region"
         - AWSNATHVM
-      InstanceType: !Ref 'NATInstanceType'
+      InstanceType: !Ref "NATInstanceType"
       Tags:
         - Key: Name
           Value: NAT1
       NetworkInterfaces:
         - GroupSet:
-            - !Ref 'NATInstanceSecurityGroup'
+            - !Ref "NATInstanceSecurityGroup"
           AssociatePublicIpAddress: true
-          DeviceIndex: '0'
+          DeviceIndex: "0"
           DeleteOnTermination: true
-          SubnetId: !Ref 'PublicSubnet1'
+          SubnetId: !Ref "PublicSubnet1"
       KeyName: !If
         - CreateNatInstance
-        - !Ref 'KeyPairName'
-        - !Ref 'AWS::NoValue'
+        - !Ref "KeyPairName"
+        - !Ref "AWS::NoValue"
       SourceDestCheck: false
   NATInstance2:
     Condition: CreateNatInstance
@@ -215,134 +205,134 @@ Resources:
     Properties:
       ImageId: !FindInMap
         - AWSAMIRegionMap
-        - !Ref 'AWS::Region'
+        - !Ref "AWS::Region"
         - AWSNATHVM
-      InstanceType: !Ref 'NATInstanceType'
+      InstanceType: !Ref "NATInstanceType"
       Tags:
         - Key: Name
           Value: NAT2
       NetworkInterfaces:
         - GroupSet:
-            - !Ref 'NATInstanceSecurityGroup'
+            - !Ref "NATInstanceSecurityGroup"
           AssociatePublicIpAddress: true
-          DeviceIndex: '0'
+          DeviceIndex: "0"
           DeleteOnTermination: true
-          SubnetId: !Ref 'PublicSubnet2'
+          SubnetId: !Ref "PublicSubnet2"
       KeyName: !If
         - CreateNatInstance
-        - !Ref 'KeyPairName'
-        - !Ref 'AWS::NoValue'
+        - !Ref "KeyPairName"
+        - !Ref "AWS::NoValue"
       SourceDestCheck: false
   NATInstanceSecurityGroup:
     Condition: CreateNatInstance
     Type: AWS::EC2::SecurityGroup
     Properties:
       GroupDescription: Enables outbound internet access for the VPC via the NAT instances
-      VpcId: !Ref 'VPC'
+      VpcId: !Ref "VPC"
       SecurityGroupIngress:
-        - IpProtocol: '-1'
+        - IpProtocol: "-1"
           FromPort: 1
           ToPort: 65535
-          CidrIp: !Sub '${VPCCIDRROOT}.0.0/16'
+          CidrIp: !Sub "${VPCCIDRROOT}.0.0/16"
   CloudfrontHttp:
     Type: AWS::EC2::SecurityGroup
     Properties:
       GroupDescription: cloudfront-http-ip-ranges
       SecurityGroupEgress:
-        - CidrIp: '0.0.0.0/0'
+        - CidrIp: "0.0.0.0/0"
           FromPort: -1
-          IpProtocol: '-1'
+          IpProtocol: "-1"
           ToPort: -1
-      VpcId: !Ref 'VPC'
+      VpcId: !Ref "VPC"
       Tags:
         - Key: Name
           Value: cloudfront
         - Key: Protocol
           Value: http
         - Key: AutoUpdate
-          Value: 'true'
+          Value: "true"
   CloudfrontHttps:
     Type: AWS::EC2::SecurityGroup
     Properties:
       GroupDescription: cloudfront-https-ip-ranges
       SecurityGroupEgress:
-        - CidrIp: '0.0.0.0/0'
+        - CidrIp: "0.0.0.0/0"
           FromPort: -1
-          IpProtocol: '-1'
+          IpProtocol: "-1"
           ToPort: -1
-      VpcId: !Ref 'VPC'
+      VpcId: !Ref "VPC"
       Tags:
         - Key: Name
           Value: cloudfront
         - Key: Protocol
           Value: https
         - Key: AutoUpdate
-          Value: 'true'
+          Value: "true"
 Outputs:
   PublicSubnet1ID:
     Description: Public subnet 1 ID in Availability Zone 1
-    Value: !Ref 'PublicSubnet1'
+    Value: !Ref "PublicSubnet1"
     Export:
-      Name: !Sub '${AWS::StackName}-PublicSubnet1ID'
+      Name: !Sub "${AWS::StackName}-PublicSubnet1ID"
   PublicSubnet2ID:
     Description: Public subnet 2 ID in Availability Zone 2
-    Value: !Ref 'PublicSubnet2'
+    Value: !Ref "PublicSubnet2"
     Export:
-      Name: !Sub '${AWS::StackName}-PublicSubnet2ID'
+      Name: !Sub "${AWS::StackName}-PublicSubnet2ID"
   VPCID:
-    Value: !Ref 'VPC'
+    Value: !Ref "VPC"
     Description: VPC ID
     Export:
-      Name: !Sub '${AWS::StackName}-VPCID'
+      Name: !Sub "${AWS::StackName}-VPCID"
   VPCCidr:
-    Value: !GetAtt 'VPC.CidrBlock'
+    Value: !GetAtt "VPC.CidrBlock"
     Description: VPC Cidr block
     Export:
-      Name: !Sub '${AWS::StackName}-VPCCidr'
+      Name: !Sub "${AWS::StackName}-VPCCidr"
   VpcCidrRoot:
-    Value: !Ref 'VPCCIDRROOT'
+    Value: !Ref "VPCCIDRROOT"
     Description: VPC CIDR Root
     Export:
-      Name: !Sub '${AWS::StackName}-VPCCIDRROOT'
+      Name: !Sub "${AWS::StackName}-VPCCIDRROOT"
   AvailabilityZones:
     Value: !Join
-      - ','
-      - - !GetAtt 'PublicSubnet1.AvailabilityZone'
-        - !GetAtt 'PublicSubnet2.AvailabilityZone'
+      - ","
+      - - !GetAtt "PublicSubnet1.AvailabilityZone"
+        - !GetAtt "PublicSubnet2.AvailabilityZone"
     Description: VPC Subnet AvailabilityZones (comma separated list)
     Export:
-      Name: !Sub '${AWS::StackName}-AvailabilityZones'
+      Name: !Sub "${AWS::StackName}-AvailabilityZones"
   NatGatewayZone1:
     Condition: CreateNatGateway
-    Value: !Ref 'NATGateway1'
+    Value: !Ref "NATGateway1"
     Description: Nat Gateway in Zone 1
     Export:
-      Name: !Sub '${AWS::StackName}-NatGatewayZone1'
+      Name: !Sub "${AWS::StackName}-NatGatewayZone1"
   NatGatewayZone2:
     Condition: CreateNatGateway
-    Value: !Ref 'NATGateway2'
+    Value: !Ref "NATGateway2"
     Description: Nat Gateway in Zone 2
     Export:
-      Name: !Sub '${AWS::StackName}-NatGatewayZone2'
+      Name: !Sub "${AWS::StackName}-NatGatewayZone2"
   NatInstanceZone1:
     Condition: CreateNatInstance
-    Value: !Ref 'NATInstance1'
+    Value: !Ref "NATInstance1"
     Description: Nat Gateway in Zone 1
     Export:
-      Name: !Sub '${AWS::StackName}-NatInstanceZone1'
+      Name: !Sub "${AWS::StackName}-NatInstanceZone1"
   NatInstanceZone2:
     Condition: CreateNatInstance
-    Value: !Ref 'NATInstance2'
+    Value: !Ref "NATInstance2"
     Description: Nat Gateway in Zone 2
     Export:
-      Name: !Sub '${AWS::StackName}-NatInstanceZone2'
+      Name: !Sub "${AWS::StackName}-NatInstanceZone2"
   CloudfrontHttpSG:
-    Value: !Ref 'CloudfrontHttp'
+    Value: !Ref "CloudfrontHttp"
     Description: Cloudfront http Security Group
     Export:
-      Name: !Sub '${AWS::StackName}-CloudfrontHttpSG'
+      Name: !Sub "${AWS::StackName}-CloudfrontHttpSG"
   CloudfrontHttpsSG:
-    Value: !Ref 'CloudfrontHttps'
+    Value: !Ref "CloudfrontHttps"
     Description: Cloudfront https Security Group
     Export:
-      Name: !Sub '${AWS::StackName}-CloudfrontHttpsSG'
+      Name: !Sub "${AWS::StackName}-CloudfrontHttpsSG"

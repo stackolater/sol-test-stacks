@@ -524,54 +524,6 @@
         }
       }
     },
-    "NatGatewayZone1": {
-      "Condition": "CreateNatGateway",
-      "Value": {
-        "Ref": "NATGateway1"
-      },
-      "Description": "Nat Gateway in Zone 1",
-      "Export": {
-        "Name": {
-          "Fn::Sub": "${AWS::StackName}-NatGatewayZone1"
-        }
-      }
-    },
-    "NatGatewayZone2": {
-      "Condition": "CreateNatGateway",
-      "Value": {
-        "Ref": "NATGateway2"
-      },
-      "Description": "Nat Gateway in Zone 2",
-      "Export": {
-        "Name": {
-          "Fn::Sub": "${AWS::StackName}-NatGatewayZone2"
-        }
-      }
-    },
-    "NatInstanceZone1": {
-      "Condition": "CreateNatInstance",
-      "Value": {
-        "Ref": "NATInstance1"
-      },
-      "Description": "Nat Gateway in Zone 1",
-      "Export": {
-        "Name": {
-          "Fn::Sub": "${AWS::StackName}-NatInstanceZone1"
-        }
-      }
-    },
-    "NatInstanceZone2": {
-      "Condition": "CreateNatInstance",
-      "Value": {
-        "Ref": "NATInstance2"
-      },
-      "Description": "Nat Gateway in Zone 2",
-      "Export": {
-        "Name": {
-          "Fn::Sub": "${AWS::StackName}-NatInstanceZone2"
-        }
-      }
-    },
     "CloudfrontHttpSG": {
       "Value": {
         "Ref": "CloudfrontHttp"

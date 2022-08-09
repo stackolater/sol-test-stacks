@@ -105,7 +105,7 @@
     "VPC": {
       "Type": "AWS::EC2::VPC",
       "Properties": {
-        "CidrBlock": "10.4.0.0/16",
+        "CidrBlock": { "Fn::Sub": "${VPCCIDRROOT}.0.0/16" },
         "EnableDnsSupport": true,
         "EnableDnsHostnames": true,
         "Tags": [

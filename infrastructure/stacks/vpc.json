@@ -524,17 +524,6 @@
         }
       }
     },
-    "AvailabilityZones": {
-      "Value": {
-        "Fn::Sub": "${PublicSubnet1.AvailabilityZone},${PublicSubnet2.AvailabilityZone}"
-      },
-      "Description": "VPC Subnet AvailabilityZones (comma separated list)",
-      "Export": {
-        "Name": {
-          "Fn::Sub": "${AWS::StackName}-AvailabilityZones"
-        }
-      }
-    },
     "NatGatewayZone1": {
       "Condition": "CreateNatGateway",
       "Value": {

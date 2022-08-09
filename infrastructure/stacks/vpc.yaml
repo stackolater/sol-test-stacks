@@ -71,7 +71,7 @@ Resources:
   VPC:
     Type: AWS::EC2::VPC
     Properties:
-      CidrBlock: !Sub "${VPCCIDRROOT}.0.0/16"
+      CidrBlock: "10.4.0.0/16"
       EnableDnsSupport: true
       EnableDnsHostnames: true
       Tags:
@@ -97,7 +97,7 @@ Resources:
     Type: AWS::EC2::Subnet
     Properties:
       VpcId: !Ref "VPC"
-      CidrBlock: !Sub "${VPCCIDRROOT}.0.0/20"
+      CidrBlock: "10.4.0.0/20"
       AvailabilityZone: !Select
         - 1
         - !GetAZs
@@ -114,7 +114,7 @@ Resources:
     Type: AWS::EC2::Subnet
     Properties:
       VpcId: !Ref "VPC"
-      CidrBlock: !Sub "${VPCCIDRROOT}.16.0/20"
+      CidrBlock: "10.4.16.0/20"
       AvailabilityZone: !Select
         - "2"
         - !GetAZs

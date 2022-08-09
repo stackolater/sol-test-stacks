@@ -1,0 +1,403 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: EC2 Container Service cluster [06-create-ecs]
+Parameters:
+  VPCStackName:
+    Description: The name of the target VPC stack to deploy this ELB into
+    Type: String
+  EnvironmentType:
+    Description: "Name of the environment to build : demo, development, staging performance or production"
+    Type: String
+    Default: dev
+    AllowedValues:
+      - core
+      - uat
+      - dev
+      - staging
+      - prod
+      - test
+      - demo
+      - perf
+      - feat1
+      - feat2
+      - feat3
+      - feat4
+      - feat5
+      - feat6
+  KeyName:
+    Type: AWS::EC2::KeyPair::KeyName
+    Description: Name of an existing EC2 KeyPair to enable SSH access to the ECS instances.
+    Default: core-bastion
+  DesiredCapacity:
+    Type: Number
+    Default: "1"
+    Description: Number of instances to launch in your ECS cluster.
+  MinSize:
+    Type: Number
+    Default: "1"
+    Description: Minimum number of instances that can be launched in your ECS cluster.
+  MaxSize:
+    Type: Number
+    Default: "2"
+    Description: Maximum number of instances that can be launched in your ECS cluster.
+  InstanceType:
+    Description: EC2 instance type
+    Type: String
+    Default: t2.micro
+    AllowedValues:
+      - t2.nano
+      - t2.micro
+      - t2.small
+      - t2.medium
+      - t2.large
+      - m3.medium
+      - m3.large
+      - m3.xlarge
+      - m3.2xlarge
+      - m4.large
+      - m4.xlarge
+      - m4.2xlarge
+      - m4.4xlarge
+      - m4.10xlarge
+      - c4.large
+      - c4.xlarge
+      - c4.2xlarge
+      - c4.4xlarge
+      - c4.8xlarge
+      - c3.large
+      - c3.xlarge
+      - c3.2xlarge
+      - c3.4xlarge
+      - c3.8xlarge
+      - r3.large
+      - r3.xlarge
+      - r3.2xlarge
+      - r3.4xlarge
+      - r3.8xlarge
+      - i2.xlarge
+      - i2.2xlarge
+      - i2.4xlarge
+      - i2.8xlarge
+    ConstraintDescription: Please choose a valid instance type.
+  StartupTime:
+    Description: Startup time(UTC) in cron format, http://crontab.org/
+    Default: none
+    Type: String
+  ShutdownTime:
+    Description: Startup time(UTC) in cron format, http://crontab.org/
+    Default: none
+    Type: String
+Mappings:
+  AWSRegionToAMI:
+    eu-north-1:
+      AMIID: ami-0a07aacc7315ccf81
+    ap-south-1:
+      AMIID: ami-070ea05cb21034fd4
+    eu-west-3:
+      AMIID: ami-099fb8a0f073a3da3
+    eu-west-2:
+      AMIID: ami-0b1e455c3dd6f4b3f
+    eu-west-1:
+      AMIID: ami-00abed3e2e5aff3d3
+    ap-northeast-2:
+      AMIID: ami-08c42f5f1226ba29d
+    ap-northeast-1:
+      AMIID: ami-03a9b50718282f444
+    sa-east-1:
+      AMIID: ami-06df010e8ace7bb3e
+    ca-central-1:
+      AMIID: ami-02defd689fe674bc3
+    ap-southeast-1:
+      AMIID: ami-0c143ce0a20041481
+    ap-southeast-2:
+      AMIID: ami-0132ae67ec24b7363
+    eu-central-1:
+      AMIID: ami-03201f9d49c2d89f4
+    us-east-1:
+      AMIID: ami-08a29dcf20b8fea61
+    us-east-2:
+      AMIID: ami-03aab79a35df660ba
+    us-west-1:
+      AMIID: ami-02febe0eba55c4c3c
+    us-west-2:
+      AMIID: ami-0b3ae729038e54e43
+Conditions:
+  UseStartup: !Not
+    - !Equals
+      - !Ref "StartupTime"
+      - none
+  UseShutdown: !Not
+    - !Equals
+      - !Ref "ShutdownTime"
+      - none
+Resources:
+  EC2Role:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - ec2.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      Path: /
+      Policies:
+        - PolicyName: ec2-role
+          PolicyDocument:
+            Statement:
+              - Effect: Allow
+                Action:
+                  - ecs:CreateCluster
+                  - ecs:DeregisterContainerInstance
+                  - ecs:DiscoverPollEndpoint
+                  - ecs:Poll
+                  - ecs:RegisterContainerInstance
+                  - ecs:StartTelemetrySession
+                  - ecs:Submit*
+                  - ecr:GetAuthorizationToken
+                  - ecr:BatchCheckLayerAvailability
+                  - ecr:GetDownloadUrlForLayer
+                  - ecr:BatchGetImage
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                  - sqs:*
+                Resource: "*"
+  AutoscalingRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - application-autoscaling.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      Path: /
+      Policies:
+        - PolicyName: service-autoscaling
+          PolicyDocument:
+            Statement:
+              - Effect: Allow
+                Action:
+                  - application-autoscaling:*
+                  - cloudwatch:DescribeAlarms
+                  - cloudwatch:PutMetricAlarm
+                  - ecs:DescribeServices
+                  - ecs:UpdateService
+                Resource: "*"
+  EC2InstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Path: /
+      Roles:
+        - !Ref "EC2Role"
+  ECSAutoScalingGroup:
+    Type: AWS::AutoScaling::AutoScalingGroup
+    Properties:
+      AvailabilityZones: !Split
+        - ","
+        - !ImportValue
+          Fn::Sub: ${VPCStackName}-AvailabilityZones
+      VPCZoneIdentifier:
+        - !ImportValue
+          Fn::Sub: ${VPCStackName}-${EnvironmentType}-Subnet1WorkID
+        - !ImportValue
+          Fn::Sub: ${VPCStackName}-${EnvironmentType}-Subnet2WorkID
+      LaunchConfigurationName: !Ref "ContainerInstances"
+      MinSize: !Ref "MinSize"
+      MaxSize: !Ref "MaxSize"
+      DesiredCapacity: !Ref "DesiredCapacity"
+    CreationPolicy:
+      ResourceSignal:
+        Timeout: PT15M
+    UpdatePolicy:
+      AutoScalingRollingUpdate:
+        MinInstancesInService: 1
+        MaxBatchSize: 1
+        PauseTime: PT15M
+        WaitOnResourceSignals: true
+  ContainerInstances:
+    Type: AWS::AutoScaling::LaunchConfiguration
+    Metadata:
+      AWS::CloudFormation::Init:
+        config:
+          commands:
+            "01_add_instance_to_cluster":
+              command: !Join
+                - ""
+                - - "#!/bin/bash\n"
+                  - echo ECS_CLUSTER=
+                  - !ImportValue
+                    Fn::Sub: ${VPCStackName}-${EnvironmentType}-DockerCluster
+                  - " >> /etc/ecs/ecs.config"
+          files:
+            /etc/cfn/cfn-hup.conf:
+              content: !Join
+                - ""
+                - - "[main]\n"
+                  - stack=
+                  - !Ref "AWS::StackId"
+                  - "\n"
+                  - region=
+                  - !Ref "AWS::Region"
+                  - "\n"
+              mode: "000400"
+              owner: root
+              group: root
+            /etc/cfn/hooks.d/cfn-auto-reloader.conf:
+              content: !Join
+                - ""
+                - - "[cfn-auto-reloader-hook]\n"
+                  - "triggers=post.update\n"
+                  - "path=Resources.ContainerInstances.Metadata.AWS::CloudFormation::Init\n"
+                  - "action=/opt/aws/bin/cfn-init -v "
+                  - "         --stack "
+                  - !Ref "AWS::StackName"
+                  - "         --resource ContainerInstances "
+                  - "         --region "
+                  - !Ref "AWS::Region"
+                  - "\n"
+                  - "runas=root\n"
+          services:
+            sysvinit:
+              cfn-hup:
+                enabled: "true"
+                ensureRunning: "true"
+                files:
+                  - /etc/cfn/cfn-hup.conf
+                  - /etc/cfn/hooks.d/cfn-auto-reloader.conf
+    Properties:
+      ImageId: !FindInMap
+        - AWSRegionToAMI
+        - !Ref "AWS::Region"
+        - AMIID
+      InstanceType: !Ref "InstanceType"
+      IamInstanceProfile: !Ref "EC2InstanceProfile"
+      SecurityGroups:
+        - !ImportValue
+          Fn::Sub: ${VPCStackName}-${EnvironmentType}-WorkSecurityGroupID
+        - !Ref "TaskSecurityGroup"
+      KeyName: !Ref "KeyName"
+      UserData: !Base64
+        Fn::Join:
+          - ""
+          - - "#!/bin/bash -xe\n"
+            - "yum install -y aws-cfn-bootstrap\n"
+            - "/opt/aws/bin/cfn-init -v "
+            - "         --stack "
+            - !Ref "AWS::StackName"
+            - "         --resource ContainerInstances "
+            - "         --region "
+            - !Ref "AWS::Region"
+            - "\n"
+            - "/opt/aws/bin/cfn-signal -e $? "
+            - "         --stack "
+            - !Ref "AWS::StackName"
+            - "         --resource ECSAutoScalingGroup "
+            - "         --region "
+            - !Ref "AWS::Region"
+            - "\n"
+            - "yum install -y ntp\n"
+            - "sed -i 's/^server .*//' /etc/ntp.conf\n"
+            - "echo \"# Local NTP Servers\"               >> /etc/ntp.conf\n"
+            - "echo \"server 0.gb.pool.ntp.org iburst\"   >> /etc/ntp.conf\n"
+            - "echo \"server 3.gb.pool.ntp.org\"          >> /etc/ntp.conf\n"
+            - "echo \"server 2.gb.pool.ntp.org\"          >> /etc/ntp.conf\n"
+            - "echo \"# Fallback Servers\"                >> /etc/ntp.conf\n"
+            - "echo \"server ubuntu.ntp.com\"             >> /etc/ntp.conf\n"
+            - "echo \"server 127.0.0.1\"                  >> /etc/ntp.conf\n"
+            - "/etc/init.d/ntp restart\n"
+  TaskSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: TaskSecurityGroup
+      SecurityGroupEgress:
+        - CidrIp: "0.0.0.0/0"
+          FromPort: -1
+          IpProtocol: "-1"
+          ToPort: -1
+      SecurityGroupIngress:
+        - SourceSecurityGroupId: !ImportValue
+            Fn::Sub: ${VPCStackName}-${EnvironmentType}-ELBSecurityGroupID
+          FromPort: 1024
+          IpProtocol: "6"
+          ToPort: 65535
+        - SourceSecurityGroupId: !ImportValue
+            Fn::Sub: ${VPCStackName}-${EnvironmentType}-WorkSecurityGroupID
+          FromPort: 1024
+          IpProtocol: "6"
+          ToPort: 65535
+      VpcId: !ImportValue
+        Fn::Sub: ${VPCStackName}-VPCID
+      Tags:
+        - Key: Name
+          Value: !Join
+            - "-"
+            - - sg-task
+              - !Ref "EnvironmentType"
+  CPUReservationScaleUpPolicy:
+    Type: AWS::AutoScaling::ScalingPolicy
+    Properties:
+      AdjustmentType: ChangeInCapacity
+      AutoScalingGroupName: !Ref "ECSAutoScalingGroup"
+      Cooldown: "300"
+      ScalingAdjustment: 1
+  CPUReservationScaleDownPolicy:
+    Type: AWS::AutoScaling::ScalingPolicy
+    Properties:
+      AdjustmentType: ChangeInCapacity
+      AutoScalingGroupName: !Ref "ECSAutoScalingGroup"
+      Cooldown: "300"
+      ScalingAdjustment: -1
+  CPUReservationHighAlert:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      EvaluationPeriods: 1
+      Statistic: Maximum
+      Threshold: 85
+      Period: 60
+      AlarmActions:
+        - !Ref "CPUReservationScaleUpPolicy"
+      Dimensions:
+        - Name: ClusterName
+          Value: !ImportValue
+            Fn::Sub: ${VPCStackName}-${EnvironmentType}-DockerCluster
+      ComparisonOperator: GreaterThanThreshold
+      MetricName: CPUReservation
+      Namespace: AWS/ECS
+  CPUReservationLowAlert:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      EvaluationPeriods: 1
+      Statistic: Minimum
+      Threshold: 56
+      Period: 60
+      AlarmActions:
+        - !Ref "CPUReservationScaleDownPolicy"
+      Dimensions:
+        - Name: ClusterName
+          Value: !ImportValue
+            Fn::Sub: ${VPCStackName}-${EnvironmentType}-DockerCluster
+      ComparisonOperator: LessThanOrEqualToThreshold
+      MetricName: CPUReservation
+      Namespace: AWS/ECS
+  Startup:
+    Condition: UseStartup
+    Type: AWS::AutoScaling::ScheduledAction
+    Properties:
+      AutoScalingGroupName: !Ref "ECSAutoScalingGroup"
+      MaxSize: !Ref "MaxSize"
+      MinSize: !Ref "MinSize"
+      DesiredCapacity: !Ref "DesiredCapacity"
+      Recurrence: !Ref "StartupTime"
+  Shutdown:
+    Condition: UseShutdown
+    Type: AWS::AutoScaling::ScheduledAction
+    Properties:
+      AutoScalingGroupName: !Ref "ECSAutoScalingGroup"
+      MaxSize: 0
+      MinSize: 0
+      DesiredCapacity: 0
+      Recurrence: !Ref "ShutdownTime"

@@ -1,0 +1,440 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: EC2 Container Service
+Metadata:
+  cfn-lint:
+    config:
+      ignore_checks:
+        - E3002
+Parameters:
+  VPCStackName:
+    Description: The name of the target VPC stack to deploy this ELB into
+    Type: String
+  ServiceName:
+    Description: The name of the ECS Service to create
+    Type: String
+  ContainerPort:
+    Description: The port to allocate for this container
+    Type: Number
+  ImageUrl:
+    Description: The url of a docker image that contains the application process that will handle the traffic for this service
+    Type: String
+  ContainerCpu:
+    Description: How much CPU to give the container. 1024 is 1 CPU
+    Type: Number
+  ContainerMemory:
+    Description: How much memory in megabytes to give the container
+    Type: Number
+  DesiredCount:
+    Description: How many instances of this service do you want to launch
+    Type: Number
+  ListenerRuleType:
+    Description: The type of listener rule to apply
+    Type: String
+    Default: host-header
+  ListenerRuleValue:
+    Description: The value of listener rule to apply
+    Type: String
+  ListenerRulePriority:
+    Description: The priority of listener rule to apply
+    Type: Number
+  HealthPing:
+    Description: Healthcheck URL
+    Type: String
+  EnvironmentType:
+    Description: "Name of the environment to build : demo, development, staging performance or production"
+    Type: String
+    Default: prod
+    AllowedValues:
+      - core
+      - uat
+      - dev
+      - staging
+      - prod
+      - test
+      - demo
+      - perf
+      - feat1
+      - feat2
+      - feat3
+      - feat4
+      - feat5
+      - feat6
+  Protocol:
+    Description: Which protocol should we use for this service? HTTP or HTTPS
+    Type: String
+    Default: HTTPS
+    AllowedValues:
+      - HTTP
+      - HTTPS
+  External:
+    AllowedValues:
+      - "true"
+      - "false"
+    Default: "true"
+    Type: String
+    Description: Is this an internet facing or internal ALB
+  LaunchType:
+    AllowedValues:
+      - EC2
+      - FARGATE
+    Default: FARGATE
+    Type: String
+    Description: The launch type for this Service ECS or FARGATE
+  ServiceRegistry:
+    AllowedValues:
+      - "true"
+      - "false"
+    Default: "false"
+    Type: String
+    Description: Should we create a service registry entry for this service
+  ServiceRole:
+    AllowedValues:
+      - "true"
+      - "false"
+    Default: "false"
+    Type: String
+    Description: Should we use a service role specific for this service
+  ServiceRoleName:
+    Default: ""
+    Type: String
+    Description: The Name given to the service role. Can be common accross services
+  ServiceRegistryArn:
+    Default: ""
+    Type: String
+    Description: Arn For the service in Cloud Map
+  ServiceNamespace:
+    Default: service
+    Type: String
+    Description: The name provided when creating the service namespace
+  EnvBucket:
+    Description: Bucket For CloudFormation transform snippet. default will look for Buckname in ssm /s3/bucketname/sol/EnvBucket
+    Type: String
+    Default: "{{resolve:ssm:/s3/bucketname/sol/EnvBucket:1}}"
+  EFSVolumeName:
+    Description: The volume name provided to and EFS stack if used.
+    Type: String
+    Default: none
+  ContainerPath:
+    Description: If using an EFS mount this is the path in the container where we mount that volume
+    Type: String
+    Default: /
+  RegistryCredential:
+    Description: ARN of Docker access key stored in AWS Secrets Manager
+    Type: String
+    Default: ""
+  User:
+    Description: UUID/GID of user to to use inside container
+    Type: String
+    Default: ""
+  DeploymentCircuitBreaker:
+    AllowedValues:
+      - "true"
+      - "false"
+    Default: "true"
+    Type: String
+    Description: Enable deployment circuit breaker to transition service to failed state if container repeatedly fails to start or are failing healthcheck
+  DeploymentCircuitBreakerRollback:
+    AllowedValues:
+      - "true"
+      - "false"
+    Default: "false"
+    Type: String
+    Description: Rollback if circuit breaker is tripped
+Conditions:
+  UseHTTPS: !Equals
+    - !Ref "Protocol"
+    - HTTPS
+  IsExternal: !Equals
+    - !Ref "External"
+    - "true"
+  UseServiceRegistry: !Equals
+    - !Ref "ServiceRegistry"
+    - "true"
+  CreateServiceRegistry: !And
+    - !Condition "UseServiceRegistry"
+    - !Equals
+      - !Ref "ServiceRegistryArn"
+      - ""
+  UseServiceRole: !Equals
+    - !Ref "ServiceRole"
+    - "true"
+  AddEFSVolume: !Not
+    - !Equals
+      - !Ref "EFSVolumeName"
+      - none
+  UseEC2LaunchType: !Equals
+    - !Ref "LaunchType"
+    - EC2
+  UseBridgeNetworking: !And
+    - !Condition "UseEC2LaunchType"
+    - !Equals
+      - !Ref "ServiceRegistry"
+      - "false"
+  UseFargatePlatformVersion: !And
+    - !Condition "AddEFSVolume"
+    - !Equals
+      - !Ref "LaunchType"
+      - FARGATE
+  HasRegistryCredential: !Not
+    - !Equals
+      - !Ref "RegistryCredential"
+      - ""
+  HasUser: !Not
+    - !Equals
+      - !Ref "User"
+      - ""
+Resources:
+  CloudwatchLogsGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Join
+        - "-"
+        - - ECSLogGroup
+          - !Ref "AWS::StackName"
+      RetentionInDays: 14
+  ContainerTask:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      Family: !Sub "${VPCStackName}-${EnvironmentType}-${ServiceName}"
+      Cpu: !If
+        - UseEC2LaunchType
+        - !Ref "AWS::NoValue"
+        - !Ref "ContainerCpu"
+      Memory: !If
+        - UseEC2LaunchType
+        - !Ref "AWS::NoValue"
+        - !Ref "ContainerMemory"
+      NetworkMode: !If
+        - UseBridgeNetworking
+        - bridge
+        - awsvpc
+      RequiresCompatibilities:
+        - !If
+          - UseEC2LaunchType
+          - EC2
+          - FARGATE
+      ExecutionRoleArn: !If
+        - UseServiceRole
+        - !ImportValue
+          Fn::Sub: ${EnvironmentType}-${ServiceRoleName}-ExecutionRoleArn
+        - !ImportValue
+          Fn::Sub: ${VPCStackName}-${EnvironmentType}-ECSTaskExecutionRoleArn
+      TaskRoleArn: !If
+        - UseServiceRole
+        - !ImportValue
+          Fn::Sub: ${EnvironmentType}-${ServiceRoleName}-ExecutionRoleArn
+        - !ImportValue
+          Fn::Sub: ${VPCStackName}-${EnvironmentType}-ECSTaskExecutionRoleArn
+      ContainerDefinitions:
+        - Name: !Sub "${ServiceName}-${EnvironmentType}"
+          Cpu: !Ref "ContainerCpu"
+          Memory: !Ref "ContainerMemory"
+          Image: !Ref "ImageUrl"
+          RepositoryCredentials: !If
+            - HasRegistryCredential
+            - CredentialsParameter: !Ref "RegistryCredential"
+            - !Ref "AWS::NoValue"
+          User: !If
+            - HasUser
+            - !Ref "User"
+            - !Ref "AWS::NoValue"
+          PortMappings:
+            - !If
+              - UseBridgeNetworking
+              - HostPort: 0
+                ContainerPort: !Ref "ContainerPort"
+              - ContainerPort: !Ref "ContainerPort"
+          Fn::Transform:
+            Name: AWS::Include
+            Parameters:
+              Location: !Ref "EnvBucket"
+          MountPoints: !If
+            - AddEFSVolume
+            - - ContainerPath: !Ref "ContainerPath"
+                SourceVolume: !Sub "${AWS::StackName}-Volume-${ServiceName}"
+            - !Ref "AWS::NoValue"
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-group: !Ref "CloudwatchLogsGroup"
+              awslogs-region: !Ref "AWS::Region"
+              awslogs-stream-prefix: ecs-content
+      Volumes: !If
+        - AddEFSVolume
+        - - Name: !Sub "${AWS::StackName}-Volume-${ServiceName}"
+            EFSVolumeConfiguration:
+              FilesystemId: !ImportValue
+                Fn::Sub: ${VPCStackName}-${EnvironmentType}-${EFSVolumeName}-FileSystemID
+              TransitEncryption: ENABLED
+              AuthorizationConfig:
+                IAM: ENABLED
+        - !Ref "AWS::NoValue"
+  TaskSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: TaskSecurityGroup
+      SecurityGroupEgress:
+        - CidrIp: "0.0.0.0/0"
+          FromPort: -1
+          IpProtocol: "-1"
+          ToPort: -1
+      SecurityGroupIngress:
+        - SourceSecurityGroupId: !ImportValue
+            Fn::Sub: ${VPCStackName}-${EnvironmentType}-ELBSecurityGroupID
+          FromPort: !Ref "ContainerPort"
+          IpProtocol: "6"
+          ToPort: !Ref "ContainerPort"
+      VpcId: !ImportValue
+        Fn::Sub: ${VPCStackName}-VPCID
+      Tags:
+        - Key: Name
+          Value: !Join
+            - "-"
+            - - sg-task
+              - !Ref "EnvironmentType"
+  Service:
+    Type: AWS::ECS::Service
+    Properties:
+      Cluster: !Sub "${VPCStackName}-${EnvironmentType}"
+      LaunchType: !Ref "LaunchType"
+      PlatformVersion: !If
+        - UseFargatePlatformVersion
+        - 1.4.0
+        - !Ref "AWS::NoValue"
+      DeploymentConfiguration:
+        DeploymentCircuitBreaker:
+          Enable: !Ref "DeploymentCircuitBreaker"
+          Rollback: !Ref "DeploymentCircuitBreakerRollback"
+        MaximumPercent: 200
+        MinimumHealthyPercent: 75
+      DesiredCount: !Ref "DesiredCount"
+      NetworkConfiguration: !If
+        - UseBridgeNetworking
+        - !Ref "AWS::NoValue"
+        - AwsvpcConfiguration:
+            AssignPublicIp: !If
+              - UseEC2LaunchType
+              - DISABLED
+              - ENABLED
+            SecurityGroups:
+              - !ImportValue
+                Fn::Sub: ${VPCStackName}-${EnvironmentType}-ELBSecurityGroupID
+              - !Ref "TaskSecurityGroup"
+              - !ImportValue
+                Fn::Sub: ${VPCStackName}-${EnvironmentType}-WorkSecurityGroupID
+              - !If
+                - AddEFSVolume
+                - !ImportValue
+                  Fn::Sub: ${VPCStackName}-${EnvironmentType}-${EFSVolumeName}-MountTargetSG
+                - !Ref "AWS::NoValue"
+            Subnets:
+              - !ImportValue
+                Fn::Sub: ${VPCStackName}-PublicSubnet1ID
+              - !ImportValue
+                Fn::Sub: ${VPCStackName}-PublicSubnet2ID
+      TaskDefinition: !Ref "ContainerTask"
+      LoadBalancers:
+        - ContainerName: !Join
+            - "-"
+            - - !Ref "ServiceName"
+              - !Ref "EnvironmentType"
+          ContainerPort: !Ref "ContainerPort"
+          TargetGroupArn: !Ref "ServiceTargetGroup"
+      ServiceRegistries: !If
+        - UseServiceRegistry
+        - - !If
+            - CreateServiceRegistry
+            - !If
+              - UseBridgeNetworking
+              - ContainerPort: !Ref "ContainerPort"
+                ContainerName: !Sub "${ServiceName}-${EnvironmentType}"
+                RegistryArn: !GetAtt "ServiceDiscovery.Arn"
+              - ContainerName: !Sub "${ServiceName}-${EnvironmentType}"
+                RegistryArn: !GetAtt "ServiceDiscovery.Arn"
+            - !If
+              - UseBridgeNetworking
+              - ContainerPort: !Ref "ContainerPort"
+                ContainerName: !Sub "${ServiceName}-${EnvironmentType}"
+                RegistryArn: !Sub "${ServiceRegistryArn}"
+              - ContainerName: !Sub "${ServiceName}-${EnvironmentType}"
+                RegistryArn: !Sub "${ServiceRegistryArn}"
+        - - !Ref "AWS::NoValue"
+  ServiceDiscovery:
+    Type: AWS::ServiceDiscovery::Service
+    Condition: CreateServiceRegistry
+    Properties:
+      Description: Service based on a public DNS namespace
+      DnsConfig:
+        DnsRecords:
+          - Type: A
+            TTL: 300
+        RoutingPolicy: WEIGHTED
+      Name: !Ref "ServiceName"
+      NamespaceId: !ImportValue
+        Fn::Sub: ${VPCStackName}-${ServiceNamespace}
+  ServiceTargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      HealthCheckIntervalSeconds: 30
+      HealthCheckPath: !Ref "HealthPing"
+      HealthCheckProtocol: HTTP
+      HealthCheckTimeoutSeconds: 10
+      HealthyThresholdCount: 2
+      Matcher:
+        HttpCode: 200-399
+      TargetType: !If
+        - UseBridgeNetworking
+        - instance
+        - ip
+      Name: !If
+        - UseEC2LaunchType
+        - !Sub "EC2-${ServiceName}-${EnvironmentType}"
+        - !Sub "${ServiceName}-${EnvironmentType}"
+      Port: !Ref "ContainerPort"
+      Protocol: HTTP
+      UnhealthyThresholdCount: 10
+      VpcId: !ImportValue
+        Fn::Sub: ${VPCStackName}-VPCID
+  ServiceLoadBalancerRule:
+    Type: AWS::ElasticLoadBalancingV2::ListenerRule
+    Properties:
+      Actions:
+        - TargetGroupArn: !Ref "ServiceTargetGroup"
+          Type: forward
+          Order: 2
+      Conditions:
+        - Field: !Ref "ListenerRuleType"
+          Values:
+            - !Ref "ListenerRuleValue"
+      Priority: !Ref "ListenerRulePriority"
+      ListenerArn: !If
+        - UseHTTPS
+        - !If
+          - IsExternal
+          - !ImportValue
+            Fn::Sub: ${VPCStackName}-${EnvironmentType}-WebALBHttpsListener
+          - !ImportValue
+            Fn::Sub: ${VPCStackName}-${EnvironmentType}-WebALBHttpsListenerInternal
+        - !If
+          - IsExternal
+          - !ImportValue
+            Fn::Sub: ${VPCStackName}-${EnvironmentType}-WebALBHttpListener
+          - !ImportValue
+            Fn::Sub: ${VPCStackName}-${EnvironmentType}-WebALBHttpListenerInternal
+
+Outputs:
+  ServiceLoadBalancerRule:
+    Value: !Ref "ServiceLoadBalancerRule"
+    Description: Listener rule for service
+    Export:
+      Name: !Sub "${AWS::StackName}-ServiceLoadBalancerRule"
+  ServiceTargetGroup:
+    Value: !GetAtt "ServiceTargetGroup.TargetGroupFullName"
+    Description: Load balancing target group
+    Export:
+      Name: !Sub "${AWS::StackName}-ServiceTargetGroup"
+  ServiceName:
+    Value: !GetAtt "Service.Name"
+    Description: The service name
+    Export:
+      Name: !Sub "${AWS::StackName}-ServiceName"

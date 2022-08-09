@@ -98,10 +98,7 @@ Resources:
     Properties:
       VpcId: !Ref "VPC"
       CidrBlock: "10.4.0.0/20"
-      AvailabilityZone: !Select
-        - 1
-        - !GetAZs
-          Ref: AWS::Region
+      AvailabilityZone: eu-west-1a
       Tags:
         - Key: Network
           Value: Public
@@ -115,10 +112,7 @@ Resources:
     Properties:
       VpcId: !Ref "VPC"
       CidrBlock: "10.4.16.0/20"
-      AvailabilityZone: !Select
-        - "2"
-        - !GetAZs
-          Ref: AWS::Region
+      AvailabilityZone: eu-west-1b
       Tags:
         - Key: Network
           Value: Public

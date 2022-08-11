@@ -18,36 +18,14 @@
     }
   },
   "Outputs": {
-    "BucketDomainName": {
-      "Value": {
-        "Fn::GetAtt": ["S3Bucket", "DomainName"]
-      },
-      "Description": "S3 Bucket DomainName",
-      "Export": {
-        "Name": {
-          "Fn::Sub": "${AWS::StackName}-BucketDomainName"
-        }
-      }
-    },
-    "BucketRegionalDomainName": {
-      "Value": {
-        "Fn::GetAtt": ["S3Bucket", "RegionalDomainName"]
-      },
-      "Description": "S3 Bucket RegionalDomainName",
-      "Export": {
-        "Name": {
-          "Fn::Sub": "${AWS::StackName}-BucketRegionalDomainName"
-        }
-      }
-    },
     "BucketWebsiteUrl": {
       "Value": {
-        "Fn::GetAtt": ["S3Bucket", "WebsiteURL"]
+        "Ref": "BucketName"
       },
-      "Description": "S3 Bucket WebsiteURL",
+      "Description": "S3 Bucket Name",
       "Export": {
         "Name": {
-          "Fn::Sub": "${AWS::StackName}-WebsiteURL"
+          "Fn::Sub": "${AWS::StackName}-Name"
         }
       }
     }

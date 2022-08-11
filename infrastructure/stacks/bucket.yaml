@@ -1,9 +1,5 @@
 AWSTemplateFormatVersion: "2010-09-09"
 Parameters:
-  EnvironmentType:
-    Description: "Name of the environment to build : demo, development, staging performance or production"
-    Type: String
-    Default: prod
   BucketName:
     Type: String
     Description: The Name of the the S3 Bucket.
@@ -13,27 +9,6 @@ Resources:
     DeletionPolicy: Delete
     Properties:
       BucketName: !Ref BucketName
-  BucketARNParam:
-    Type: AWS::SSM::Parameter
-    Properties:
-      Name: !Sub "/s3/arn/${EnvironmentType}/${BucketName}"
-      Type: String
-      Description: !Sub "BucketARN for S3 bucket ${BucketName}, Environment ${EnvironmentType}"
-      Value: !GetAtt "S3Bucket.Arn"
-  BucketDomainNameParam:
-    Type: AWS::SSM::Parameter
-    Properties:
-      Name: !Sub "/s3/domainname/${EnvironmentType}/${BucketName}"
-      Type: String
-      Description: !Sub "Bucket Domain Name for S3 bucket ${BucketName}, Environment ${EnvironmentType}"
-      Value: !GetAtt "S3Bucket.DomainName"
-  BucketWebsiteURLParam:
-    Type: AWS::SSM::Parameter
-    Properties:
-      Name: !Sub "/s3/websiteurl/${EnvironmentType}/${BucketName}"
-      Type: String
-      Description: !Sub "Bucket WebsiteUrl for S3 bucket ${BucketName}, Environment ${EnvironmentType}"
-      Value: !GetAtt "S3Bucket.WebsiteURL"
 Outputs:
   BucketARN:
     Value: !GetAtt "S3Bucket.Arn"

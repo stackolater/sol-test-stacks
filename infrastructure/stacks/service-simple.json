@@ -310,6 +310,7 @@
     "Service": {
       "Type": "AWS::ECS::Service",
       "Properties": {
+        "Cluster": { "Fn::Sub": "${VPCStackName}-${EnvironmentType}" },
         "LaunchType": {
           "Ref": "LaunchType"
         },

@@ -158,7 +158,7 @@
           "Ref": "VPC"
         },
         "CidrBlock": "10.4.0.0/20",
-        "AvailabilityZone": "eu-west-1a",
+        "AvailabilityZone": "eu-west-1b",
         "Tags": [
           {
             "Key": "Network",
@@ -185,7 +185,7 @@
           "Ref": "VPC"
         },
         "CidrBlock": "10.4.16.0/20",
-        "AvailabilityZone": "eu-west-1b",
+        "AvailabilityZone": "eu-west-1c",
         "Tags": [
           {
             "Key": "Network",
@@ -544,6 +544,13 @@
         "Name": {
           "Fn::Sub": "${AWS::StackName}-CloudfrontHttpsSG"
         }
+      }
+    },
+    "AvailabilityZones": {
+      "Value": "eu-west-1b,eu-west-1c",
+      "Description": "VPC Subnet AvailabilityZones (comma separated list)",
+      "Export": {
+        "Name": { "Fn::Sub": "${AWS::StackName}-AvailabilityZones" }
       }
     }
   }
